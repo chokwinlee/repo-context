@@ -18,14 +18,11 @@ Create `.repo-context/` before deep code reads in repositories that are large, s
 ## Commands
 
 ```bash
-export CODEX_HOME="${CODEX_HOME:-$HOME/.codex}"
-export RCE="$CODEX_HOME/skills/repo-context/scripts/repo_context.py"
-
-python3 "$RCE" bootstrap --root /path/to/repo
-python3 "$RCE" refresh --root /path/to/repo
-python3 "$RCE" check --root /path/to/repo --fail-on-stale
-python3 "$RCE" task-scope --root /path/to/repo --query "add png export to editor"
-python3 "$RCE" bootstrap --root /path/to/repo --out .agent-context/repo-context
+python3 scripts/repo_context.py bootstrap --root /path/to/repo
+python3 scripts/repo_context.py refresh --root /path/to/repo
+python3 scripts/repo_context.py check --root /path/to/repo --fail-on-stale
+python3 scripts/repo_context.py task-scope --root /path/to/repo --query "add png export to editor"
+python3 scripts/repo_context.py bootstrap --root /path/to/repo --out .agent-context/repo-context
 ```
 
 ## Operating Rules

@@ -1,23 +1,22 @@
 # repo-context
 
-`repo-context` is a reusable workflow for code agents working in large, legacy, or weakly documented repositories. It generates and maintains a progressive context pack under `.repo-context/` by default so an agent can orient quickly, avoid reading the whole repo at once, and keep its architectural context fresh during multi-file work.
+`repo-context` is a portable skill for code agents working in large, legacy, or weakly documented repositories.
 
-This repository currently ships the workflow in a Codex-compatible skill layout, but the underlying model is agent-agnostic: bootstrap repo knowledge, read summaries first, scope the task, then read source deeply only where necessary.
+It builds a repo-local context pack so an agent can orient itself, scope work before deep file reads, and refresh that knowledge after code changes.
 
-## Why This Exists
+## Compatibility
 
-Large repositories often degrade agent quality in predictable ways:
+This repository follows the open [`SKILL.md`](https://github.com/anthropics/agent-skills-standard) pattern used across modern agent tooling. The packaged skill is designed to be usable anywhere that supports repository-scoped skills or promptable skill folders.
 
-- too many large files get pulled into context at once
-- architecture knowledge only exists in code, not in reusable summaries
-- legacy services require repeated rediscovery before every change
-- multi-file refactors invalidate earlier context and increase hallucination risk
+## Included Skill
 
-`repo-context` addresses that by creating a repo-local knowledge layer before deep code reads.
+| Skill | Description |
+| --- | --- |
+| `repo-context` | Build and maintain a progressive repo context pack with repo maps, module briefs, hotspot briefs, drift checks, and task scoping. |
 
-## What It Creates
+## What It Generates
 
-For any target repository, the workflow writes a context pack under `.repo-context/` by default:
+By default, `repo-context` writes a progressive context pack to `.repo-context/` inside the target repository:
 
 ```text
 .repo-context/
@@ -29,81 +28,58 @@ For any target repository, the workflow writes a context pack under `.repo-conte
 └── manifest.json
 ```
 
-This gives the agent:
+The output directory can be overridden with `--out` when the host agent or project already has a preferred memory or artifacts directory.
 
-- a repo map before implementation reads
-- logical module briefs for important directories
-- hotspot file briefs for oversized or high-fan-in/fan-out files
-- drift detection after source changes
-- task scoping for feature work and bugfixes
+## Why It Exists
 
-The output location is configurable. If a project or agent runtime already has a preferred artifacts directory, use `--out` and write the pack there instead.
+Large repositories usually break agent quality in the same ways:
 
-## Best For
+- too many implementation files get loaded at once
+- architecture knowledge only exists in code, not reusable summaries
+- legacy services have to be rediscovered before every change
+- multi-file refactors make earlier context stale
+
+`repo-context` adds a lightweight knowledge layer before implementation reads so agents can work progressively instead of reading the whole repository up front.
+
+## When To Use It
 
 - onboarding into an unfamiliar codebase
-- planning multi-file feature work
-- legacy-service tracing and safe change scoping
-- keeping architectural context fresh during refactors
-- reducing prompt bloat before coding
+- planning non-trivial multi-file work
+- tracing legacy services before changes
+- generating a repo map or hotspot analysis
+- refreshing architecture context during refactors
 
-## Agent Model
+## Installation
 
-`repo-context` is designed around a generic code-agent loop:
-
-1. bootstrap repo knowledge
-2. read the repo map and module briefs before deep source reads
-3. scope the current task to a small set of modules and files
-4. refresh the context pack after meaningful code changes
-
-If your agent platform supports skills, tools, prompts, rules, or repo-local knowledge packs, this workflow can be adapted directly.
-
-## Install
-
-This repository is packaged today as a Codex-compatible skill, but the scripts and references can also be reused in other agent systems.
-
-### Option 1: Install From This GitHub Repo
-
-If you use Codex and already have the built-in skill installer helpers:
+### Skills CLI
 
 ```bash
-python3 ~/.codex/skills/.system/skill-installer/scripts/install-skill-from-github.py \
-  --repo chokwinlee/repo-context \
-  --path skills/repo-context
+npx skills add chokwinlee/repo-context --skill repo-context
 ```
 
-### Option 2: Manual Install
+### Manual
+
+Copy `skills/repo-context/` into the local or project skill directory used by your agent.
 
 ```bash
-export CODEX_HOME="${CODEX_HOME:-$HOME/.codex}"
-mkdir -p "$CODEX_HOME/skills"
-cp -R skills/repo-context "$CODEX_HOME/skills/repo-context"
+cp -R skills/repo-context /path/to/<agent-skills-dir>/repo-context
 ```
 
-Restart Codex after installing the skill.
+## Usage
 
-## Use With A Code Agent
+Typical workflow:
 
-The generic usage pattern is:
-
-```text
-1. bootstrap the repository context
-2. ask the agent to scope the task against that context
-3. open only the recommended modules and files
-4. refresh after broad edits
-```
+1. bootstrap repository context
+2. check whether the pack is stale
+3. scope the task against the generated map and briefs
+4. read only the recommended modules and files
+5. refresh after broad edits
 
 Example prompts:
 
 - `Bootstrap repo context for this repository, then tell me which modules matter for adding Stripe billing.`
 - `Refresh repo context, then scope a fix for the legacy reporting endpoint.`
 - `Before planning a refactor of the export pipeline, generate a repo map and hotspot briefs.`
-
-If you are using Codex specifically, you can invoke the packaged skill directly:
-
-```text
-Use $repo-context on /path/to/repo first, then scope the task: add PNG export to the editor.
-```
 
 ## CLI Quick Start
 
@@ -120,25 +96,23 @@ python3 skills/repo-context/scripts/repo_context.py bootstrap --root /path/to/re
 ```text
 repo-context/
 ├── README.md
-├── .gitignore
 └── skills/
     └── repo-context/
         ├── SKILL.md
         ├── agents/openai.yaml
         ├── scripts/
-        ├── references/
-        └── assets/
+        └── references/
 ```
 
-The concrete packaged skill lives at `skills/repo-context`, but the scripts, references, and context-pack workflow are intended to be portable across agent runtimes.
+The published skill lives at `skills/repo-context`.
 
-## Validate Locally
+## Local Validation
 
 ```bash
 python3 skills/repo-context/scripts/test_repo_context.py
-python3 ~/.codex/skills/.system/skill-creator/scripts/quick_validate.py skills/repo-context
+python3 -m py_compile skills/repo-context/scripts/repo_context.py skills/repo-context/scripts/test_repo_context.py skills/repo-context/scripts/lib/*.py
 ```
 
 ## Current Scope
 
-`repo-context` is optimized for JS/TS repositories first, but it still works on mixed or legacy codebases via language-agnostic scanning, hotspot detection, and repo-structure analysis.
+`repo-context` is optimized for JS/TS repositories first, but it still works on mixed or legacy codebases through language-agnostic scanning, hotspot detection, and repo-structure analysis.
