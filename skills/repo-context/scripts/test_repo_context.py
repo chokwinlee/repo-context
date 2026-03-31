@@ -56,10 +56,13 @@ def main() -> int:
         make_hotspot(legacy_repo / "src" / "legacy-reporting.js", "Legacy")
 
         assert_ok(run_cli("bootstrap", "--root", str(next_repo)), "bootstrap next fixture")
-        assert_ok(run_cli("bootstrap", "--root", str(legacy_repo)), "bootstrap legacy fixture")
+        assert_ok(
+            run_cli("bootstrap", "--root", str(legacy_repo), "--out", ".agent-context/repo-context"),
+            "bootstrap legacy fixture",
+        )
 
-        next_context = next_repo / ".codex" / "context"
-        legacy_context = legacy_repo / ".codex" / "context"
+        next_context = next_repo / ".repo-context"
+        legacy_context = legacy_repo / ".agent-context" / "repo-context"
         required = ["index.md", "repo-map.md", "manifest.json", "symbol-map.json"]
         for artifact in required:
             if not next_context.joinpath(artifact).exists():

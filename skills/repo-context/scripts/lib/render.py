@@ -170,7 +170,7 @@ def render_index(scan: dict) -> str:
     return "\n".join(lines) + "\n"
 
 
-def build_context_pack(scan: dict, mode: str) -> tuple[dict[str, str], dict, dict]:
+def build_context_pack(scan: dict, mode: str, output_dir: str) -> tuple[dict[str, str], dict, dict]:
     docs: dict[str, str] = {
         "index.md": render_index(scan),
         "repo-map.md": render_repo_map(scan),
@@ -194,6 +194,7 @@ def build_context_pack(scan: dict, mode: str) -> tuple[dict[str, str], dict, dic
         "version": 1,
         "mode": mode,
         "generated_at": scan["generated_at"],
+        "output_dir": output_dir,
         "frameworks": scan["frameworks"],
         "thresholds": scan["thresholds"],
         "stats": scan["stats"],

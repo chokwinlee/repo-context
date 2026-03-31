@@ -3,7 +3,7 @@
 ## File Selection
 
 - Track common source files plus operational text/config files.
-- Ignore build outputs, vendored dependencies, and `.codex/context/`.
+- Ignore build outputs, vendored dependencies, and generated context directories such as `.repo-context/`.
 - Allow optional include/exclude globs during `bootstrap`.
 
 ## JS/TS Enhanced Parsing

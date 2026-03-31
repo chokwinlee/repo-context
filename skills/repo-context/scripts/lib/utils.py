@@ -51,6 +51,15 @@ def ensure_dir(path: Path) -> Path:
     return path
 
 
+def display_path(path: Path, root: Path | None = None) -> str:
+    if root is not None:
+        try:
+            return path.relative_to(root).as_posix()
+        except ValueError:
+            pass
+    return path.as_posix()
+
+
 def slugify_path(value: str) -> str:
     slug = value.replace("\\", "/").strip("/")
     slug = slug.replace("/", "__")

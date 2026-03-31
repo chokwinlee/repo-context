@@ -2,7 +2,7 @@
 
 ## Output Location
 
-Write all generated artifacts under `.codex/context/` in the target repository.
+Write generated artifacts to a neutral repo-local directory. The default is `.repo-context/`, but callers can override it with `--out` to match their agent runtime or project conventions.
 
 ## Required Files
 

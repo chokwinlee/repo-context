@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from .drift import resolve_context_dir
 from .utils import tokenize
 
 
@@ -12,8 +13,8 @@ def _load_json(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def build_task_scope(root: Path, query: str) -> dict:
-    context_dir = root / ".codex" / "context"
+def build_task_scope(root: Path, query: str, out: str | None = None) -> dict:
+    context_dir = resolve_context_dir(root, out=out)
     symbol_map = _load_json(context_dir / "symbol-map.json")
     query_tokens = tokenize(query)
     modules = symbol_map.get("modules", {})

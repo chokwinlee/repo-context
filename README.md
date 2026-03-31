@@ -1,6 +1,6 @@
 # repo-context
 
-`repo-context` is a reusable workflow for code agents working in large, legacy, or weakly documented repositories. It generates and maintains a progressive context pack under `.codex/context/` so an agent can orient quickly, avoid reading the whole repo at once, and keep its architectural context fresh during multi-file work.
+`repo-context` is a reusable workflow for code agents working in large, legacy, or weakly documented repositories. It generates and maintains a progressive context pack under `.repo-context/` by default so an agent can orient quickly, avoid reading the whole repo at once, and keep its architectural context fresh during multi-file work.
 
 This repository currently ships the workflow in a Codex-compatible skill layout, but the underlying model is agent-agnostic: bootstrap repo knowledge, read summaries first, scope the task, then read source deeply only where necessary.
 
@@ -17,10 +17,10 @@ Large repositories often degrade agent quality in predictable ways:
 
 ## What It Creates
 
-For any target repository, the skill writes a context pack under `.codex/context/`:
+For any target repository, the workflow writes a context pack under `.repo-context/` by default:
 
 ```text
-.codex/context/
+.repo-context/
 ├── index.md
 ├── repo-map.md
 ├── modules/*.md
@@ -36,6 +36,8 @@ This gives the agent:
 - hotspot file briefs for oversized or high-fan-in/fan-out files
 - drift detection after source changes
 - task scoping for feature work and bugfixes
+
+The output location is configurable. If a project or agent runtime already has a preferred artifacts directory, use `--out` and write the pack there instead.
 
 ## Best For
 
@@ -110,6 +112,7 @@ python3 skills/repo-context/scripts/repo_context.py bootstrap --root /path/to/re
 python3 skills/repo-context/scripts/repo_context.py check --root /path/to/repo --fail-on-stale
 python3 skills/repo-context/scripts/repo_context.py task-scope --root /path/to/repo --query "add png export to the editor"
 python3 skills/repo-context/scripts/repo_context.py refresh --root /path/to/repo
+python3 skills/repo-context/scripts/repo_context.py bootstrap --root /path/to/repo --out .agent-context/repo-context
 ```
 
 ## Repository Layout
