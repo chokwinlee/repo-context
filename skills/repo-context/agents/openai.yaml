@@ -1,0 +1,4 @@
+interface:
+  display_name: "Repo Context"
+  short_description: "Build and maintain progressive repo context"
+  default_prompt: "Use $repo-context to generate and refresh a progressive context pack for this repository."
