@@ -8,6 +8,8 @@ It builds a repo-local context pack so an agent can orient itself, scope work be
 
 This repository follows the open [`SKILL.md`](https://github.com/anthropics/agent-skills-standard) pattern used across modern agent tooling. The packaged skill is designed to be usable anywhere that supports repository-scoped skills or promptable skill folders.
 
+It is intended for tools and directories that support portable skills, including Agent Skills Standard-compatible environments and similar agent runtimes.
+
 ## Included Skill
 
 | Skill | Description |
@@ -62,7 +64,8 @@ npx skills add chokwinlee/repo-context --skill repo-context
 Copy `skills/repo-context/` into the local or project skill directory used by your agent.
 
 ```bash
-cp -R skills/repo-context /path/to/<agent-skills-dir>/repo-context
+git clone https://github.com/chokwinlee/repo-context.git
+cp -R repo-context/skills/repo-context /path/to/<agent-skills-dir>/repo-context
 ```
 
 ## Usage
@@ -116,3 +119,7 @@ python3 -m py_compile skills/repo-context/scripts/repo_context.py skills/repo-co
 ## Current Scope
 
 `repo-context` is optimized for JS/TS repositories first, but it still works on mixed or legacy codebases through language-agnostic scanning, hotspot detection, and repo-structure analysis.
+
+## License
+
+MIT
