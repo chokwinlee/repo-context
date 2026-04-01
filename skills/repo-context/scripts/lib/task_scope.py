@@ -22,12 +22,13 @@ def build_task_scope(root: Path, query: str, out: str | None = None) -> dict:
 
     module_scores: list[tuple[float, str]] = []
     for module_path, module in modules.items():
+        symbols = module.get("symbols", module.get("exports", []))
         searchable = " ".join(
             [
                 module_path,
                 module.get("role", ""),
                 " ".join(module.get("files", [])),
-                " ".join(module.get("exports", [])),
+                " ".join(symbols),
             ]
         ).lower()
         score = 0.0
@@ -54,12 +55,14 @@ def build_task_scope(root: Path, query: str, out: str | None = None) -> dict:
     for file_path, file_record in files.items():
         if file_record.get("module") not in top_modules and not file_record.get("hotspot"):
             continue
+        symbols = file_record.get("symbols", file_record.get("exports", []))
+        dependencies = file_record.get("dependencies", file_record.get("internal_imports", []))
         searchable = " ".join(
             [
                 file_path,
                 file_record.get("role", ""),
-                " ".join(file_record.get("exports", [])),
-                " ".join(file_record.get("internal_imports", [])),
+                " ".join(symbols),
+                " ".join(dependencies),
             ]
         ).lower()
         score = 0.0

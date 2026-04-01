@@ -55,12 +55,12 @@ def render_module_brief(module: dict, scan: dict) -> str:
     if not module["entrypoints"]:
         for file_path in module["files"][:5]:
             lines.append(f"- `{file_path}`")
-    lines.extend(["", "## Export Surface", ""])
-    if module["exports"]:
-        for export_name in module["exports"][:12]:
-            lines.append(f"- `{export_name}`")
+    lines.extend(["", "## Declared Symbols", ""])
+    if module["symbols"]:
+        for symbol_name in module["symbols"][:12]:
+            lines.append(f"- `{symbol_name}`")
     else:
-        lines.append("- No explicit export symbols detected; rely on file paths and callers.")
+        lines.append("- No named symbols detected; rely on file paths, callers, and entrypoints.")
     lines.extend(["", "## Invariants", ""])
     lines.append(f"- {CHANGE_RECIPES.get(module['role'], CHANGE_RECIPES['unknown'])}")
     if module["adjacent_modules"]:
@@ -90,18 +90,18 @@ def render_hotspot_brief(file_record: dict, scan: dict, dependents: list[str]) -
     lines.append(f"- Why hot: {', '.join(file_record['hotspot_reasons'])}")
     if file_record.get("module"):
         lines.append(f"- Module: [`{file_record['module']}`](../{module_doc_relpath(file_record['module'])})")
-    lines.extend(["", "## Export Surface", ""])
-    if file_record["exports"]:
-        for export_name in file_record["exports"][:12]:
-            lines.append(f"- `{export_name}`")
+    lines.extend(["", "## Declared Symbols", ""])
+    if file_record["symbols"]:
+        for symbol_name in file_record["symbols"][:12]:
+            lines.append(f"- `{symbol_name}`")
     else:
-        lines.append("- No explicit export symbols detected.")
+        lines.append("- No named symbols detected.")
     lines.extend(["", "## Internal Dependencies", ""])
-    if file_record["internal_imports"]:
-        for dependency in file_record["internal_imports"][:10]:
+    if file_record["dependencies"]:
+        for dependency in file_record["dependencies"][:10]:
             lines.append(f"- `{dependency}`")
     else:
-        lines.append("- No internal imports detected.")
+        lines.append("- No internal dependencies detected.")
     lines.extend(["", "## Dependents", ""])
     if dependents:
         for dependent in dependents[:10]:
@@ -119,11 +119,17 @@ def render_hotspot_brief(file_record: dict, scan: dict, dependents: list[str]) -
 
 def render_repo_map(scan: dict) -> str:
     lines = ["# Repo Map", "", "## Summary", ""]
-    frameworks = ", ".join(f"`{item}`" for item in scan["frameworks"]) if scan["frameworks"] else "`unknown`"
-    lines.append(f"- Framework hints: {frameworks}")
+    project_hints = ", ".join(f"`{item}`" for item in scan["project_hints"]) if scan["project_hints"] else "`unknown`"
+    lines.append(f"- Project hints: {project_hints}")
     lines.append(f"- Tracked files: {scan['stats']['tracked_files']} (`{scan['stats']['source_files']}` source)")
     lines.append(f"- Modules: {scan['stats']['modules']}")
     lines.append(f"- Hotspots: {scan['stats']['hotspots']}")
+    lines.extend(["", "## Project Markers", ""])
+    if scan["project_markers"]:
+        for path in scan["project_markers"][:12]:
+            lines.append(f"- `{path}`")
+    else:
+        lines.append("- No manifest or repo-level marker files detected.")
     lines.extend(["", "## Top Directories", ""])
     for directory in scan["top_level_dirs"][:12]:
         lines.append(
@@ -178,7 +184,7 @@ def build_context_pack(scan: dict, mode: str, output_dir: str) -> tuple[dict[str
 
     reverse_imports: dict[str, list[str]] = {}
     for file_path, file_record in scan["files"].items():
-        for dependency in file_record["internal_imports"]:
+        for dependency in file_record["dependencies"]:
             reverse_imports.setdefault(dependency, []).append(file_path)
 
     for module_path, module in scan["modules"].items():
@@ -191,10 +197,11 @@ def build_context_pack(scan: dict, mode: str, output_dir: str) -> tuple[dict[str
         )
 
     manifest = {
-        "version": 1,
+        "version": 2,
         "mode": mode,
         "generated_at": scan["generated_at"],
         "output_dir": output_dir,
+        "project_hints": scan["project_hints"],
         "frameworks": scan["frameworks"],
         "thresholds": scan["thresholds"],
         "stats": scan["stats"],
@@ -206,14 +213,16 @@ def build_context_pack(scan: dict, mode: str, output_dir: str) -> tuple[dict[str
     }
 
     symbol_map = {
-        "version": 1,
+        "version": 2,
         "generated_at": scan["generated_at"],
+        "project_hints": scan["project_hints"],
         "frameworks": scan["frameworks"],
         "thresholds": scan["thresholds"],
         "files": scan["files"],
         "modules": scan["modules"],
         "hotspot_files": scan["hotspot_files"],
         "entrypoints": scan["entrypoints"],
+        "project_markers": scan["project_markers"],
         "top_level_dirs": scan["top_level_dirs"],
     }
     return docs, symbol_map, manifest

@@ -6,12 +6,21 @@
 - Ignore build outputs, vendored dependencies, and generated context directories such as `.repo-context/`.
 - Allow optional include/exclude globs during `bootstrap`.
 
-## JS/TS Enhanced Parsing
+## Analyzer-Driven Hints
 
-- Parse `import`, `export`, `require`, and dynamic `import()` statements.
-- Detect entrypoints from `page.tsx`, `layout.tsx`, `route.ts`, `main.*`, `server.*`, and `package.json`.
-- Detect component-like exports when function names are PascalCase.
-- Resolve internal imports for relative paths and simple repo-root aliases like `@/`.
+- Keep the scan core language-agnostic; analyzer modules may add symbols, dependency edges, entrypoint hints, or project hints.
+- Auto-discover project analyzers from `repo-context/analyzers/`.
+- Skip analyzer files inside ignored areas such as `.git/`, `.venv/`, `node_modules/`, build output folders, and root `.gitignore` matches.
+- Advanced callers can still inject a custom registry directly when they need non-default composition.
+- Built-in analyzers currently cover JS/TS, Python, and Ruby source files.
+- Manifest and lockfile analyzers add repo-level hints from files such as `package.json`, `pyproject.toml`, `go.mod`, `Cargo.toml`, `Gemfile`, and `composer.json`.
+- Unknown languages still participate in role detection, module grouping, hotspot scoring, and drift checks.
+
+## Built-In Language Rules
+
+- JS/TS: parse `import`, `export`, `require`, and dynamic `import()` statements; detect component-like symbols when function names are PascalCase; resolve relative paths and simple repo-root aliases like `@/`.
+- Python: parse top-level functions/classes and import statements; resolve relative imports and common package paths.
+- Ruby: parse `require`/`require_relative`, plus top-level class/module/method declarations.
 
 ## Module Detection
 
@@ -27,13 +36,14 @@
 
 ## Role Classification
 
-- `routing`: `app/`, `pages/`, `routes/`, `api/`
-- `ui`: `components/`, `ui/`
-- `domain`: `lib/`, `core/`, `services/`, `generators/`
-- `scripts`: `scripts/`, `bin/`
-- `tests`: `tests/`, `__tests__/`, `*.test.*`
+- `api`: `api/`, `handlers/`, `controllers/`, `endpoints/`
+- `routing`: `app/`, `pages/`, `routes/`, `router/`
+- `ui`: `components/`, `ui/`, `views/`, `templates/`
+- `domain`: `lib/`, `core/`, `services/`, `internal/`, `pkg/`, `models/`
+- `scripts`: `scripts/`, `bin/`, `tools/`, `hack/`
+- `tests`: `tests/`, `spec/`, `__tests__/`, `*.test.*`, `*.spec.*`
 - `docs`: `docs/`, `content/`, markdown-heavy areas
-- `config`: repo and tool config files
+- `config`: repo manifests, tool config files, CI folders, and root runtime config
 - `legacy`: path segments or files explicitly labeled `legacy`
 
 ## Stability Preference
