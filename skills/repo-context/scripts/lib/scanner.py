@@ -1,49 +1,26 @@
-"""Repository scanner with JS/TS-enhanced import and export parsing."""
+"""Repository scanner with a generic core and registry-driven analyzers."""
 
 from __future__ import annotations
 
-import json
-import re
 from collections import defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterable
 
+from .analyzers import AnalyzerRegistry, prepare_analyzer_registry
 from .constants import (
-    ENTRYPOINT_NAMES,
+    CONFIG_SUFFIXES,
     FAN_PERCENTILE,
     HOTSPOT_LOC_THRESHOLD,
     IGNORED_DIRS,
     IGNORED_FILES,
-    JS_TS_EXTENSIONS,
     MODULE_SOURCE_THRESHOLD,
+    PROJECT_MARKER_NAMES,
     ROLE_DESCRIPTIONS,
-    ROUTE_ENTRYPOINT_NAMES,
     SOURCE_EXTENSIONS,
     TRACKED_EXTENSIONS,
 )
-from .utils import count_loc, normalize_import_path, read_text, rel_posix, sha256_text, stable_sorted, tokenize, top_bucket_threshold
-
-
-IMPORT_PATTERNS = [
-    re.compile(r"^\s*import(?:[\s\w{},*]+from\s*)?[\"']([^\"']+)[\"']", re.MULTILINE),
-    re.compile(r"^\s*export\s+.*?\s+from\s+[\"']([^\"']+)[\"']", re.MULTILINE),
-    re.compile(r"require\(\s*[\"']([^\"']+)[\"']\s*\)"),
-    re.compile(r"import\(\s*[\"']([^\"']+)[\"']\s*\)"),
-]
-
-EXPORT_PATTERNS = [
-    re.compile(r"^\s*export\s+(?:async\s+)?function\s+([A-Za-z0-9_]+)", re.MULTILINE),
-    re.compile(r"^\s*export\s+(?:const|let|var)\s+([A-Za-z0-9_]+)", re.MULTILINE),
-    re.compile(r"^\s*export\s+class\s+([A-Za-z0-9_]+)", re.MULTILINE),
-    re.compile(r"^\s*export\s+(?:type|interface|enum)\s+([A-Za-z0-9_]+)", re.MULTILINE),
-    re.compile(r"^\s*export\s+default\s+function\s+([A-Za-z0-9_]+)", re.MULTILINE),
-    re.compile(r"^\s*export\s+default\s+class\s+([A-Za-z0-9_]+)", re.MULTILINE),
-    re.compile(r"^\s*exports\.([A-Za-z0-9_]+)\s*=", re.MULTILINE),
-]
-
-COMPONENT_PATTERN = re.compile(r"^\s*(?:export\s+)?(?:default\s+)?function\s+([A-Z][A-Za-z0-9_]*)", re.MULTILINE)
-PACKAGE_JSON_KEYS = ("dependencies", "devDependencies")
+from .utils import count_loc, rel_posix, sha256_text, stable_sorted, tokenize, top_bucket_threshold
 
 
 def _matches_any(rel_path: str, patterns: Iterable[str]) -> bool:
@@ -62,7 +39,7 @@ def should_track(path: Path, root: Path, includes: list[str] | None, excludes: l
         return _matches_any(rel_path, includes)
     if path.suffix.lower() in TRACKED_EXTENSIONS:
         return True
-    return path.name in {"Dockerfile", "Makefile", "package.json", "tsconfig.json"}
+    return path.name in PROJECT_MARKER_NAMES or path.name.endswith(CONFIG_SUFFIXES)
 
 
 def detect_language(path: Path) -> str:
@@ -70,23 +47,39 @@ def detect_language(path: Path) -> str:
         return "docker"
     if path.name == "Makefile":
         return "make"
+    if path.suffix.lower() == ".gradle" or path.name.endswith(".gradle.kts"):
+        return "gradle"
     suffix = path.suffix.lower()
     return {
+        ".c": "c",
+        ".cc": "cpp",
+        ".cfg": "config",
         ".cjs": "javascript",
+        ".conf": "config",
+        ".cpp": "cpp",
+        ".cs": "csharp",
         ".css": "css",
+        ".env": "config",
         ".go": "go",
+        ".html": "html",
+        ".ini": "config",
         ".java": "java",
         ".js": "javascript",
         ".json": "json",
         ".jsx": "javascript",
         ".kt": "kotlin",
+        ".kts": "kotlin",
+        ".lock": "lockfile",
+        ".m": "objective-c",
         ".md": "markdown",
         ".mdx": "mdx",
         ".mjs": "javascript",
         ".php": "php",
+        ".properties": "config",
         ".py": "python",
         ".rb": "ruby",
         ".rs": "rust",
+        ".scala": "scala",
         ".scss": "scss",
         ".sh": "shell",
         ".sql": "sql",
@@ -94,6 +87,8 @@ def detect_language(path: Path) -> str:
         ".toml": "toml",
         ".ts": "typescript",
         ".tsx": "typescript",
+        ".txt": "text",
+        ".xml": "xml",
         ".yaml": "yaml",
         ".yml": "yaml",
     }.get(suffix, "text")
@@ -102,152 +97,88 @@ def detect_language(path: Path) -> str:
 def detect_role(rel_path: str) -> str:
     parts = rel_path.lower().split("/")
     file_name = parts[-1]
-    if "legacy" in parts or "legacy" in file_name:
+    if "legacy" in parts or "legacy" in file_name or "deprecated" in parts:
         return "legacy"
-    if "test" in file_name or "__tests__" in parts or "tests" in parts:
+    if "test" in file_name or "spec" in file_name or "__tests__" in parts or any(part in {"tests", "spec", "specs"} for part in parts):
         return "tests"
-    if any(part in {"app", "pages", "routes", "route", "api"} for part in parts):
+    if any(part in {"api", "controllers", "endpoints", "handlers"} for part in parts):
+        return "api"
+    if any(part in {"app", "pages", "route", "routes", "router"} for part in parts):
         return "routing"
-    if any(part in {"components", "ui"} for part in parts):
+    if any(part in {"components", "templates", "ui", "views"} for part in parts):
         return "ui"
-    if any(part in {"lib", "core", "domain", "services", "generators"} for part in parts):
+    if any(part in {"core", "domain", "internal", "lib", "models", "pkg", "services"} for part in parts):
         return "domain"
-    if any(part in {"scripts", "bin"} for part in parts):
+    if any(part in {"bin", "hack", "scripts", "tools"} for part in parts):
         return "scripts"
-    if any(part in {"docs", "content"} for part in parts) or file_name.endswith(".md"):
+    if any(part in {"content", "docs"} for part in parts) or file_name.endswith(".md"):
         return "docs"
-    if any(part in {"data", "fixtures"} for part in parts):
+    if any(part in {"data", "fixtures", "migrations", "seed"} for part in parts):
         return "data"
-    if file_name in {"package.json", "tsconfig.json"} or file_name.endswith((".config.js", ".config.ts", ".config.mjs")):
+    if (
+        file_name in PROJECT_MARKER_NAMES
+        or file_name.endswith(CONFIG_SUFFIXES)
+        or file_name in {"Dockerfile", "Makefile", "Procfile"}
+        or any(part in {".github", ".circleci", "config"} for part in parts)
+    ):
         return "config"
     return "unknown"
 
 
-def parse_imports(text: str) -> list[str]:
-    imports: list[str] = []
-    for pattern in IMPORT_PATTERNS:
-        imports.extend(pattern.findall(text))
-    return stable_sorted(imports)
-
-
-def parse_exports(text: str) -> list[str]:
-    exports: list[str] = []
-    for pattern in EXPORT_PATTERNS:
-        exports.extend(pattern.findall(text))
-    if "export default" in text and "default" not in exports:
-        exports.append("default")
-    exports.extend(COMPONENT_PATTERN.findall(text))
-    return stable_sorted(exports)
-
-
-def resolve_internal_import(importer_path: str, import_target: str, known_files: set[str]) -> str | None:
-    if import_target.startswith(("./", "../")):
-        base = normalize_import_path(str(Path(importer_path).parent / import_target))
-    elif import_target.startswith(("@/", "~/")):
-        base = normalize_import_path(import_target[2:])
-    elif import_target.startswith("/"):
-        base = normalize_import_path(import_target[1:])
-    else:
-        return None
-
-    candidates = [base]
-    if Path(base).suffix:
-        candidates.append(base.rsplit(".", 1)[0])
-
-    extensions = sorted(JS_TS_EXTENSIONS | {".py", ".rb", ".go", ".rs"})
-    for prefix in list(candidates):
-        for extension in extensions:
-            candidates.append(f"{prefix}{extension}")
-            candidates.append(f"{prefix}/index{extension}")
-
-    for candidate in candidates:
-        normalized = normalize_import_path(candidate)
-        if normalized in known_files:
-            return normalized
-    return None
-
-
-def detect_frameworks(root: Path, files: dict[str, dict]) -> list[str]:
-    frameworks: list[str] = []
-    package_json = root / "package.json"
-    if package_json.exists():
-        try:
-            package_data = json.loads(read_text(package_json))
-        except json.JSONDecodeError:
-            package_data = {}
-        deps = {}
-        for key in PACKAGE_JSON_KEYS:
-            deps.update(package_data.get(key, {}))
-        if "next" in deps:
-            frameworks.append("nextjs")
-        if "react" in deps:
-            frameworks.append("react")
-        if "vue" in deps:
-            frameworks.append("vue")
-        if "express" in deps:
-            frameworks.append("express")
-    if root.joinpath("next.config.js").exists() or root.joinpath("next.config.mjs").exists():
-        frameworks.append("nextjs")
-    if any(path.startswith("app/") and path.endswith(("page.tsx", "page.jsx")) for path in files):
-        frameworks.append("app-router")
-    if any(path.endswith(".py") for path in files):
-        frameworks.append("python")
-    return stable_sorted(frameworks)
-
-
-def scan_repository(root: Path, includes: list[str] | None = None, excludes: list[str] | None = None) -> dict:
+def scan_repository(
+    root: Path,
+    includes: list[str] | None = None,
+    excludes: list[str] | None = None,
+    registry: AnalyzerRegistry | None = None,
+    discover_project_analyzers: bool = True,
+) -> dict:
     root = root.resolve()
+    analyzer_registry = prepare_analyzer_registry(root, registry=registry, discover_local=discover_project_analyzers)
     files: dict[str, dict] = {}
     source_paths: list[str] = []
 
+    tracked_paths: list[Path] = []
     for path in sorted(root.rglob("*")):
         if not path.is_file():
             continue
-        if not should_track(path, root, includes, excludes):
-            continue
+        if should_track(path, root, includes, excludes):
+            tracked_paths.append(path)
+
+    known_files = {rel_posix(path, root) for path in tracked_paths}
+    for path in tracked_paths:
         rel_path = rel_posix(path, root)
-        text = read_text(path)
+        text = path.read_text(encoding="utf-8", errors="ignore")
         language = detect_language(path)
         is_source = path.suffix.lower() in SOURCE_EXTENSIONS or path.name in {"Dockerfile", "Makefile"}
-        is_entrypoint = path.name in ENTRYPOINT_NAMES or path.name in ROUTE_ENTRYPOINT_NAMES
-        if "/app/" in f"/{rel_path}/" and path.name in ROUTE_ENTRYPOINT_NAMES:
-            is_entrypoint = True
-        imports = parse_imports(text) if path.suffix.lower() in JS_TS_EXTENSIONS | {".py", ".rb"} else []
-        exports = parse_exports(text) if path.suffix.lower() in JS_TS_EXTENSIONS | {".py", ".rb"} else []
+        hints = analyzer_registry.analyze_file(root, path, rel_path, text, known_files)
         files[rel_path] = {
             "path": rel_path,
             "sha256": sha256_text(text),
             "loc": count_loc(text),
             "language": language,
             "role": detect_role(rel_path),
-            "imports": imports,
-            "exports": exports[:16],
-            "tokens": stable_sorted(tokenize(rel_path) + tokenize(" ".join(exports))),
-            "is_entrypoint": is_entrypoint,
+            "imports": hints.imports,
+            "symbols": hints.symbols,
+            "tokens": stable_sorted(tokenize(rel_path) + hints.tokens),
+            "is_entrypoint": hints.is_entrypoint,
+            "is_project_marker": hints.is_project_marker,
             "is_source": is_source,
-            "internal_imports": [],
+            "dependencies": hints.dependencies,
             "fan_in": 0,
-            "fan_out": 0,
+            "fan_out": len(hints.dependencies),
             "hotspot": False,
             "hotspot_reasons": [],
         }
         if is_source:
             source_paths.append(rel_path)
 
-    known_files = set(files)
-    reverse_imports: dict[str, set[str]] = defaultdict(set)
+    reverse_dependencies: dict[str, set[str]] = defaultdict(set)
     for rel_path, record in files.items():
-        internal_imports: list[str] = []
-        for import_target in record["imports"]:
-            resolved = resolve_internal_import(rel_path, import_target, known_files)
-            if resolved:
-                internal_imports.append(resolved)
-                reverse_imports[resolved].add(rel_path)
-        record["internal_imports"] = stable_sorted(internal_imports)
-        record["fan_out"] = len(record["internal_imports"])
+        for dependency in record["dependencies"]:
+            reverse_dependencies[dependency].add(rel_path)
 
     for rel_path, record in files.items():
-        record["fan_in"] = len(reverse_imports.get(rel_path, set()))
+        record["fan_in"] = len(reverse_dependencies.get(rel_path, set()))
 
     source_values = [files[path]["fan_in"] for path in source_paths]
     fan_in_threshold = top_bucket_threshold(source_values, FAN_PERCENTILE)
@@ -275,7 +206,6 @@ def scan_repository(root: Path, includes: list[str] | None = None, excludes: lis
         for directory, count in recursive_source_counts.items()
         if count >= MODULE_SOURCE_THRESHOLD
     } | entrypoint_dirs
-
     candidate_modules = {module for module in candidate_modules if module}
     ordered_modules = sorted(candidate_modules, key=lambda value: (value.count("/"), value))
 
@@ -299,7 +229,7 @@ def scan_repository(root: Path, includes: list[str] | None = None, excludes: lis
                 "role": detect_role(module_path),
                 "files": [],
                 "entrypoints": [],
-                "exports": [],
+                "symbols": [],
                 "adjacent_modules": set(),
                 "hotspots": [],
                 "total_loc": 0,
@@ -309,13 +239,13 @@ def scan_repository(root: Path, includes: list[str] | None = None, excludes: lis
         module["files"].append(rel_path)
         module["total_loc"] += files[rel_path]["loc"]
         module["fingerprint_inputs"].append(files[rel_path]["sha256"])
-        module["exports"].extend(files[rel_path]["exports"])
+        module["symbols"].extend(files[rel_path]["symbols"])
         if files[rel_path]["is_entrypoint"]:
             module["entrypoints"].append(rel_path)
 
     for rel_path in source_paths:
         module_path = files[rel_path].get("module")
-        for dependency in files[rel_path]["internal_imports"]:
+        for dependency in files[rel_path]["dependencies"]:
             target_module = files.get(dependency, {}).get("module")
             if module_path and target_module and target_module != module_path:
                 modules[module_path]["adjacent_modules"].add(target_module)
@@ -337,7 +267,7 @@ def scan_repository(root: Path, includes: list[str] | None = None, excludes: lis
     for module in modules.values():
         module["files"] = sorted(module["files"])
         module["entrypoints"] = sorted(module["entrypoints"])
-        module["exports"] = stable_sorted(module["exports"])[:20]
+        module["symbols"] = stable_sorted(module["symbols"])[:20]
         module["adjacent_modules"] = sorted(module["adjacent_modules"])
         module["hotspots"] = sorted(module["hotspots"])
         module["file_count"] = len(module["files"])
@@ -365,14 +295,16 @@ def scan_repository(root: Path, includes: list[str] | None = None, excludes: lis
             }
         )
 
-    frameworks = detect_frameworks(root, files)
+    project_hints = analyzer_registry.detect_project_hints(root, files)
     hotspot_files = sorted((path for path in source_paths if files[path]["hotspot"]), key=lambda item: (-files[item]["loc"], item))
     entrypoints = sorted(path for path in source_paths if files[path]["is_entrypoint"])
+    project_markers = sorted(path for path, record in files.items() if record["is_project_marker"])
 
     return {
         "root": str(root),
         "generated_at": datetime.now(timezone.utc).isoformat(),
-        "frameworks": frameworks,
+        "project_hints": project_hints,
+        "frameworks": project_hints,
         "thresholds": {
             "hotspot_loc": HOTSPOT_LOC_THRESHOLD,
             "fan_percentile": FAN_PERCENTILE,
@@ -390,6 +322,7 @@ def scan_repository(root: Path, includes: list[str] | None = None, excludes: lis
         "modules": modules,
         "hotspot_files": hotspot_files,
         "entrypoints": entrypoints,
+        "project_markers": project_markers,
         "top_level_dirs": top_level_summary,
         "role_descriptions": ROLE_DESCRIPTIONS,
     }

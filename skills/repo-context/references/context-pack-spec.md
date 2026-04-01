@@ -10,8 +10,8 @@ Write generated artifacts to a neutral repo-local directory. The default is `.re
 - `repo-map.md`: top-level repo overview, entrypoints, hotspots, and change recipes.
 - `modules/*.md`: one brief per detected logical directory.
 - `files/*.md`: briefs only for hotspot files.
-- `symbol-map.json`: machine-readable file/module graph, hashes, LOC, imports, exports, and hotspot flags.
-- `manifest.json`: generation metadata, thresholds, freshness summary, and expected artifact list.
+- `symbol-map.json`: machine-readable file/module graph, hashes, LOC, dependencies, symbols, hotspot flags, and project hints.
+- `manifest.json`: generation metadata, thresholds, freshness summary, expected artifact list, and project hints.
 
 ## Read Order
 
@@ -24,7 +24,7 @@ Write generated artifacts to a neutral repo-local directory. The default is `.re
 ## Content Rules
 
 - Keep markdown summary-first.
-- Prefer contracts, entrypoints, dependencies, and change guidance over implementation detail.
+- Prefer contracts, entrypoints, dependencies, project markers, and change guidance over implementation detail.
 - Do not dump long code excerpts.
 - Keep hotspot briefs limited to files that cross the active thresholds.
 - Keep generated content deterministic enough that unchanged modules do not rewrite on refresh.

@@ -36,6 +36,7 @@ python3 scripts/repo_context.py bootstrap --root /path/to/repo --out .agent-cont
 ## References
 
 - Context pack contract and read order: `references/context-pack-spec.md`
+- Architecture split and extension model: `references/architecture.md`
 - Scanning rules and hotspot heuristics: `references/scanning-heuristics.md`
 - First-pass workflow for old services: `references/legacy-onboarding.md`
 - Drift, refresh, and CI policy: `references/maintenance-policy.md`

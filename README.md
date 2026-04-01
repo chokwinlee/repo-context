@@ -3,6 +3,7 @@
 `repo-context` is a portable skill for code agents working in large, legacy, or weakly documented repositories.
 
 It builds a repo-local context pack so an agent can orient itself, scope work before deep file reads, and refresh that knowledge after code changes.
+The architecture is language-agnostic: a generic scan core generates modules, hotspots, and repo briefs, while language-aware analyzers only contribute optional hints.
 
 ## Compatibility
 
@@ -83,6 +84,7 @@ Example prompts:
 - `Bootstrap repo context for this repository, then tell me which modules matter for adding Stripe billing.`
 - `Refresh repo context, then scope a fix for the legacy reporting endpoint.`
 - `Before planning a refactor of the export pipeline, generate a repo map and hotspot briefs.`
+- `Bootstrap repo context, then scope the files involved in verifying a Python webhook signature.`
 
 ## CLI Quick Start
 
@@ -109,6 +111,15 @@ repo-context/
 
 The published skill lives at `skills/repo-context`.
 
+## Architecture
+
+- Generic scan core: file inventory, role classification, module detection, hotspot scoring, drift checks, and deterministic rendering.
+- Analyzer layer: a registry of file analyzers and project-hint analyzers contributes symbols, dependency edges, entrypoint hints, and ecosystem hints without changing the output contract.
+- Local extension discovery: project analyzers are auto-loaded from `repo-context/analyzers/` when that directory is present and not ignored.
+- Stable outputs: `index.md`, `repo-map.md`, module briefs, hotspot briefs, `symbol-map.json`, and `manifest.json`.
+
+See `skills/repo-context/references/architecture.md` for the design split and extension model.
+
 ## Local Validation
 
 ```bash
@@ -118,7 +129,7 @@ python3 -m py_compile skills/repo-context/scripts/repo_context.py skills/repo-co
 
 ## Current Scope
 
-`repo-context` is optimized for JS/TS repositories first, but it still works on mixed or legacy codebases through language-agnostic scanning, hotspot detection, and repo-structure analysis.
+`repo-context` is generic by design. It currently ships analyzers for JS/TS, Python, and Ruby, plus manifest-based project hints for Node, Python, Go, Rust, Java, Ruby, and PHP repositories. Repositories outside those analyzers still get the generic context-pack workflow through directory, role, hotspot, and module heuristics.
 
 ## License
 
