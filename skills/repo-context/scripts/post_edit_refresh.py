@@ -48,7 +48,7 @@ def _candidate_roots(path: Path) -> list[Path]:
 
 
 def _looks_like_repo_root(path: Path) -> bool:
-    return path.joinpath(".git").exists() or path.joinpath(".repo-context").exists() or path.joinpath(".codex", "context").exists()
+    return path.joinpath(".git").exists() or path.joinpath(".repo-context").exists()
 
 
 def _resolve_root(root_arg: str | None, file_arg: str | None) -> Path:

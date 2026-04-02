@@ -156,7 +156,6 @@ HOTSPOT_LOC_THRESHOLD = 400
 FAN_PERCENTILE = 0.05
 MODULE_SOURCE_THRESHOLD = 3
 DEFAULT_CONTEXT_DIRNAME = ".repo-context"
-LEGACY_CONTEXT_DIRNAME = ".codex/context"
 
 ROLE_DESCRIPTIONS = {
     "api": "Owns service or HTTP-facing contracts.",

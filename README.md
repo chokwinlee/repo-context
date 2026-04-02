@@ -31,7 +31,13 @@ By default, `repo-context` writes a progressive context pack to `.repo-context/`
 └── manifest.json
 ```
 
-The output directory can be overridden with `--out` when the host agent or project already has a preferred memory or artifacts directory.
+The output directory is resolved with strict precedence:
+
+1. `--out`
+2. `REPO_CONTEXT_OUT`
+3. `<repo>/.repo-context/`
+
+There is no automatic fallback to legacy directories such as `.codex/context`.
 
 ## Why It Exists
 

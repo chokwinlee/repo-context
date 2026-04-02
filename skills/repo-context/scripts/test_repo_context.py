@@ -252,6 +252,15 @@ def main() -> int:
         if "custom-python-stack" not in custom_scan["project_hints"]:
             raise AssertionError(f"Expected custom project hint, got {custom_scan['project_hints']}")
 
+        strict_repo = tmp_root / "strict-default-dir"
+        write_text(strict_repo / "src" / "main.py", "print('ok')\n")
+        write_text(strict_repo / ".codex" / "context" / "manifest.json", "{}\n")
+        assert_ok(run_cli("bootstrap", "--root", str(strict_repo)), "bootstrap strict default dir fixture")
+        if not strict_repo.joinpath(".repo-context", "manifest.json").exists():
+            raise AssertionError("Expected bootstrap to write to .repo-context by default")
+        if strict_repo.joinpath(".codex", "context", "index.md").exists():
+            raise AssertionError("Bootstrap should not write generated artifacts into legacy context directories")
+
     print("repo-context tests passed")
     return 0
 

@@ -2,7 +2,13 @@
 
 ## Output Location
 
-Write generated artifacts to a neutral repo-local directory. The default is `.repo-context/`, but callers can override it with `--out` to match their agent runtime or project conventions.
+Write generated artifacts to a neutral repo-local directory with this strict precedence:
+
+1. `--out`
+2. `REPO_CONTEXT_OUT`
+3. `<repo>/.repo-context/`
+
+There is no fallback to legacy directories.
 
 ## Required Files
 

@@ -6,7 +6,7 @@ import json
 import os
 from pathlib import Path
 
-from .constants import DEFAULT_CONTEXT_DIRNAME, LEGACY_CONTEXT_DIRNAME
+from .constants import DEFAULT_CONTEXT_DIRNAME
 from .render import expected_doc_paths
 from .scanner import scan_repository
 from .utils import display_path
@@ -23,11 +23,6 @@ def resolve_context_dir(root: Path, out: str | None = None) -> Path:
         return candidate if candidate.is_absolute() else root / candidate
 
     default_dir = root / DEFAULT_CONTEXT_DIRNAME
-    legacy_dir = root / LEGACY_CONTEXT_DIRNAME
-    if default_dir.exists():
-        return default_dir
-    if legacy_dir.exists():
-        return legacy_dir
     return default_dir
 
 

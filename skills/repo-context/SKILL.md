@@ -5,7 +5,15 @@ description: Build and maintain a repo-local progressive context pack for large,
 
 # Repo Context
 
-Create `.repo-context/` before deep code reads in repositories that are large, stale, or structurally unclear. Prefer the generated context pack over loading many implementation files at once. Override the location with `--out` when your agent runtime or repo convention needs a different directory.
+Create `.repo-context/` before deep code reads in repositories that are large, stale, or structurally unclear. Prefer the generated context pack over loading many implementation files at once.
+
+Context location precedence is strict:
+
+1. `--out`
+2. `REPO_CONTEXT_OUT`
+3. `<repo>/.repo-context/`
+
+Do not infer or reuse any legacy fallback directory.
 
 ## Gitignore Caveat
 
