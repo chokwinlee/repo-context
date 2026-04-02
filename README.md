@@ -86,6 +86,12 @@ Example prompts:
 - `Before planning a refactor of the export pipeline, generate a repo map and hotspot briefs.`
 - `Bootstrap repo context, then scope the files involved in verifying a Python webhook signature.`
 
+Important behavior:
+
+- Bare `rg` and `rg --files` respect `.gitignore`, so they are not a reliable source of truth for repo-wide discovery.
+- The `repo-context` scan intentionally looks past root `.gitignore` so generated or untracked implementation files can still appear in the context pack when they matter.
+- Project-local analyzer auto-discovery under `repo-context/analyzers/` still respects ignored paths, so hidden experimental analyzers do not load accidentally.
+
 ## CLI Quick Start
 
 ```bash
@@ -94,7 +100,11 @@ python3 skills/repo-context/scripts/repo_context.py check --root /path/to/repo -
 python3 skills/repo-context/scripts/repo_context.py task-scope --root /path/to/repo --query "add png export to the editor"
 python3 skills/repo-context/scripts/repo_context.py refresh --root /path/to/repo
 python3 skills/repo-context/scripts/repo_context.py bootstrap --root /path/to/repo --out .agent-context/repo-context
+python3 skills/repo-context/scripts/post_edit_refresh.py --root /path/to/repo --file /path/to/edited-file
 ```
+
+For immediate freshness after every code edit, use a host-level post-edit hook that runs `post_edit_refresh.py`.
+Git hooks are still useful at commit or merge boundaries, but they cannot guarantee recalculation after each local write.
 
 ## Repository Layout
 
@@ -115,6 +125,7 @@ The published skill lives at `skills/repo-context`.
 
 - Generic scan core: file inventory, role classification, module detection, hotspot scoring, drift checks, and deterministic rendering.
 - Analyzer layer: a registry of file analyzers and project-hint analyzers contributes symbols, dependency edges, entrypoint hints, and ecosystem hints without changing the output contract.
+- Main scan behavior: tracked repo files are discovered independently of root `.gitignore`, so the context pack can cover generated or otherwise hidden source when needed.
 - Local extension discovery: project analyzers are auto-loaded from `repo-context/analyzers/` when that directory is present and not ignored.
 - Stable outputs: `index.md`, `repo-map.md`, module briefs, hotspot briefs, `symbol-map.json`, and `manifest.json`.
 
@@ -124,7 +135,8 @@ See `skills/repo-context/references/architecture.md` for the design split and ex
 
 ```bash
 python3 skills/repo-context/scripts/test_repo_context.py
-python3 -m py_compile skills/repo-context/scripts/repo_context.py skills/repo-context/scripts/test_repo_context.py skills/repo-context/scripts/lib/*.py
+python3 skills/repo-context/scripts/post_edit_refresh.py --root /path/to/repo --file /path/to/repo/some-file.py
+python3 -m py_compile skills/repo-context/scripts/repo_context.py skills/repo-context/scripts/post_edit_refresh.py skills/repo-context/scripts/test_repo_context.py skills/repo-context/scripts/lib/*.py
 ```
 
 ## Current Scope

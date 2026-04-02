@@ -20,12 +20,22 @@ from lib.scanner import scan_repository
 
 
 CLI = SKILL_DIR / "scripts" / "repo_context.py"
+POST_EDIT_HOOK = SKILL_DIR / "scripts" / "post_edit_refresh.py"
 FIXTURES = SKILL_DIR / "assets" / "fixtures"
 
 
 def run_cli(*args: str) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         ["python3", str(CLI), *args],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+
+def run_post_edit_hook(*args: str) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        ["python3", str(POST_EDIT_HOOK), *args],
         text=True,
         capture_output=True,
         check=False,
@@ -127,6 +137,32 @@ def main() -> int:
         if unrelated_module_doc.stat().st_mtime_ns != unchanged_before:
             raise AssertionError("Unrelated module brief changed unexpectedly during refresh")
 
+        hook_changed_before = hotspot_doc.stat().st_mtime_ns
+        hook_module_before = lib_module_doc.stat().st_mtime_ns
+        hook_unchanged_before = unrelated_module_doc.stat().st_mtime_ns
+
+        with next_repo.joinpath("lib", "paper-export.ts").open("a", encoding="utf-8") as handle:
+            handle.write("\nexport function exportJpeg(templateId: string) {\n  return `jpeg:${templateId}`\n}\n")
+
+        assert_ok(
+            run_post_edit_hook(
+                "--root",
+                str(next_repo),
+                "--file",
+                str(next_repo / "lib" / "paper-export.ts"),
+            ),
+            "post-edit hook refresh",
+        )
+        fresh_after_hook = run_cli("check", "--root", str(next_repo), "--fail-on-stale")
+        assert_ok(fresh_after_hook, "freshness check after post-edit hook")
+
+        if hotspot_doc.stat().st_mtime_ns == hook_changed_before:
+            raise AssertionError("Hotspot brief did not update after post-edit hook refresh")
+        if lib_module_doc.stat().st_mtime_ns == hook_module_before:
+            raise AssertionError("Affected module brief did not update after post-edit hook refresh")
+        if unrelated_module_doc.stat().st_mtime_ns != hook_unchanged_before:
+            raise AssertionError("Unrelated module brief changed unexpectedly during post-edit hook refresh")
+
         legacy_hotspot = legacy_context / file_doc_relpath("src/legacy-reporting.js")
         if not legacy_hotspot.exists():
             raise AssertionError("Expected hotspot brief for legacy reporting file")
@@ -201,7 +237,7 @@ def main() -> int:
         )
         write_text(
             custom_repo / ".gitignore",
-            "repo-context/analyzers/ignored_by_gitignore.py\n",
+            "app/main.py\nrepo-context/analyzers/ignored_by_gitignore.py\n",
         )
 
         custom_scan = scan_repository(custom_repo)

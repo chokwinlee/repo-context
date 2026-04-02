@@ -1,11 +1,19 @@
 ---
 name: repo-context
-description: Build and maintain a repo-local progressive context pack for large, legacy, or weakly documented codebases. Use when an agent needs a repo map, hotspot analysis, module/file briefs, legacy-service onboarding, or better context discipline before non-trivial multi-file work and refactors.
+description: Build and maintain a repo-local progressive context pack for large, legacy, or weakly documented codebases, especially when plain file discovery may miss relevant paths behind `.gitignore`. Use when an agent needs a repo map, hotspot analysis, module/file briefs, legacy-service onboarding, or better context discipline before non-trivial multi-file work and refactors.
 ---
 
 # Repo Context
 
 Create `.repo-context/` before deep code reads in repositories that are large, stale, or structurally unclear. Prefer the generated context pack over loading many implementation files at once. Override the location with `--out` when your agent runtime or repo convention needs a different directory.
+
+## Gitignore Caveat
+
+Bare `rg`, `rg --files`, and many host file pickers respect `.gitignore`. That is the wrong default when important implementation files live in generated, vendored, or otherwise gitignored paths.
+
+- For repo-wide discovery, prefer `repo_context.py` as the source of truth instead of ad hoc file listing.
+- If you must inspect raw files before the context pack exists, use `rg -uu` or an equivalent no-ignore mode, not bare `rg`.
+- The main repo-context scan intentionally looks past root `.gitignore` for context inputs, while project-local analyzer auto-discovery under `repo-context/analyzers/` still honors ignored paths.
 
 ## Workflow
 
@@ -23,15 +31,25 @@ python3 scripts/repo_context.py refresh --root /path/to/repo
 python3 scripts/repo_context.py check --root /path/to/repo --fail-on-stale
 python3 scripts/repo_context.py task-scope --root /path/to/repo --query "add png export to editor"
 python3 scripts/repo_context.py bootstrap --root /path/to/repo --out .agent-context/repo-context
+python3 scripts/post_edit_refresh.py --root /path/to/repo --file /path/to/edited-file
 ```
+
+## Hook Automation
+
+- If the host supports post-edit command hooks, wire `scripts/post_edit_refresh.py` to every code write.
+- Prefer post-edit hooks over Git hooks when you need refreshes after each modification, not only at commit time.
+- `post_edit_refresh.py` may run after every edit because rendering already avoids rewriting unchanged artifacts.
 
 ## Operating Rules
 
 - Always prefer context-pack generation to ad hoc whole-repo reading.
+- Never rely on bare `rg` or `rg --files` for repo inventory; they usually hide `.gitignore`d paths.
+- When the host supports hooks, attach `post_edit_refresh.py` to edit/write events so the pack stays fresh automatically.
 - Treat `index.md` and `repo-map.md` as the default entrypoint for orientation.
 - Read hotspot briefs before opening large implementation files.
 - Keep writes isolated to `.repo-context/` by default; use `--out` when the target project already has a better artifact or memory directory.
 - Use `refresh` after major refactors, codegen, or broad search-and-replace edits.
+- Use `rg -uu` for one-off raw searches when you need files that normal repo discovery would hide.
 
 ## References
 

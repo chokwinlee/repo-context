@@ -4,6 +4,7 @@
 
 - Track common source files plus operational text/config files.
 - Ignore build outputs, vendored dependencies, and generated context directories such as `.repo-context/`.
+- Do not treat root `.gitignore` as a hard filter for the main scan; important source may live in generated or otherwise gitignored paths.
 - Allow optional include/exclude globs during `bootstrap`.
 
 ## Analyzer-Driven Hints
@@ -11,6 +12,7 @@
 - Keep the scan core language-agnostic; analyzer modules may add symbols, dependency edges, entrypoint hints, or project hints.
 - Auto-discover project analyzers from `repo-context/analyzers/`.
 - Skip analyzer files inside ignored areas such as `.git/`, `.venv/`, `node_modules/`, build output folders, and root `.gitignore` matches.
+- This means analyzer discovery is stricter than the main repo scan by design.
 - Advanced callers can still inject a custom registry directly when they need non-default composition.
 - Built-in analyzers currently cover JS/TS, Python, and Ruby source files.
 - Manifest and lockfile analyzers add repo-level hints from files such as `package.json`, `pyproject.toml`, `go.mod`, `Cargo.toml`, `Gemfile`, and `composer.json`.

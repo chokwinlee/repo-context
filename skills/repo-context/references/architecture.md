@@ -6,6 +6,7 @@
 
 1. File inventory
    - Select tracked files.
+   - Main scan does not use root `.gitignore` as a hard exclusion layer.
    - Hash contents.
    - Record LOC, language, and coarse role hints.
 
